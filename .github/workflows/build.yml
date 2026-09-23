@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      ARCH: x86-64
+      COMP: clang
     steps:
       - uses: actions/checkout@v4
 
@@ -33,12 +36,12 @@ jobs:
       - name: Build
         working-directory: pkf/src
         shell: msys2 {0}
-        run: make -j profile-build EXE=pikafish-switch.exe ARCH=x86-64 COMP=clang
+        run: make -j4 build EXE=pikafish-switch.exe
 
       - name: Strip
         working-directory: pkf/src
         shell: msys2 {0}
-        run: make strip EXE=pikafish-switch.exe COMP=clang
+        run: make strip EXE=pikafish-switch.exe
 
       - uses: actions/upload-artifact@v4
         with:
