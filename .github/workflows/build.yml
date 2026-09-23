@@ -28,15 +28,17 @@ jobs:
           mv Pikafish-master pkf
           ls pkf/src
 
-      - name: Override src files with patched versions
+      - name: Apply XQ rule patch
         shell: msys2 {0}
+        working-directory: pkf
         run: |
-          cp -v src/position.cpp   pkf/src/position.cpp
-          cp -v src/position.h     pkf/src/position.h
-          cp -v src/engine.cpp      pkf/src/engine.cpp
-          cp -v src/ucioption.cpp  pkf/src/ucioption.cpp
-          echo "--- Patched files copied ---"
-          head -30 pkf/src/position.cpp | tail -5
+          git init
+          git add -A
+          git commit -m "master snapshot"
+          sed -i 's/\r$//' ../xq-rule.patch
+          git apply --verbose ../xq-rule.patch
+          echo "--- Patch applied ---"
+          grep -n "ChineseRule\|MateThreatDepth\|2 \* (st->check10\|Catch false" src/position.cpp | head -10
 
       - name: Build
         working-directory: pkf/src
