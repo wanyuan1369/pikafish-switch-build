@@ -38,7 +38,7 @@ jobs:
           git add -A
           git commit -m "master snapshot"
           sed -i 's/\r$//' ../xq-rule.patch
-          git apply --verbose ../xq-rule.patch
+          git apply --recount --verbose ../xq-rule.patch
           echo "--- Patch applied ---"
           grep -n "ChineseRule\|MateThreatDepth\|2 \* (st->check10\|Catch false" src/position.cpp | head -10
 
