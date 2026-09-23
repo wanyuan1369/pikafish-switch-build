@@ -1359,9 +1359,23 @@ bool Position::rule_judge(Value& result, int ply) {
                 if (result == VALUE_DRAW || cnt == 2)
                     return true;
 
-                // We know there can't be another fold
+                // 2 fold mates need further investigations
                 if (filter[st->key] <= 1)
-                    return false;
+                {
+                    // Not exceeding rule 60 and have the same previous step
+                    if (st->rule60 < 120 && st->previous->key == stp->previous->key)
+                    {
+                        // Even if we entering this loop again, it will not lead to a 3 fold repetition
+                        StateInfo* prev = st->previous;
+                        while ((prev = prev->previous) != stp)
+                            if (filter[prev->key] > 1)
+                                break;
+                        if (prev == stp)
+                            return true;
+                    }
+                    // We know there can't be another fold
+                    break;
+                }
             }
 
             if (i + 1 <= end)
