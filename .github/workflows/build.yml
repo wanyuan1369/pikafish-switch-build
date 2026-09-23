@@ -26,19 +26,14 @@ jobs:
           curl -sL https://codeload.github.com/official-pikafish/Pikafish/tar.gz/refs/heads/master -o src.tar.gz
           tar -xzf src.tar.gz
           mv Pikafish-master pkf
+          ls pkf/src
 
-
-
-      - name: Overwrite with fixed source
+      - name: Apply XQ rule patch
+        working-directory: pkf
         shell: msys2 {0}
         run: |
-          cp fixed-src/position.h      pkf/src/position.h
-          cp fixed-src/position.cpp    pkf/src/position.cpp
-          cp fixed-src/engine.cpp      pkf/src/engine.cpp
-          cp fixed-src/ucioption.cpp   pkf/src/ucioption.cpp
-          echo "--- Fixed files copied ---"
-          grep -c "ChineseRule" pkf/src/position.cpp
-          grep -c "Repetition Rule" pkf/src/engine.cpp
+          sed -i 's/\r$//' ../xq-rule.patch
+          git apply --verbose ../xq-rule.patch
 
       - name: Build
         working-directory: pkf/src
