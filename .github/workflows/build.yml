@@ -31,7 +31,9 @@ jobs:
       - name: Apply XQ rule patch
         working-directory: pkf
         shell: msys2 {0}
-        run: git apply --verbose ../xq-rule.patch
+        run: |
+          sed -i 's/\r$//' ../xq-rule.patch
+          git apply --verbose ../xq-rule.patch
 
       - name: Build
         working-directory: pkf/src
