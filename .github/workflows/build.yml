@@ -2,7 +2,7 @@ name: Build Pikafish master Windows
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -28,12 +28,15 @@ jobs:
           mv Pikafish-master pkf
           ls pkf/src
 
-      - name: Apply XQ rule patch
-        working-directory: pkf
+      - name: Override src files with patched versions
         shell: msys2 {0}
         run: |
-          sed -i 's/\r$//' ../xq-rule.patch
-          git apply --verbose ../xq-rule.patch
+          cp -v src/position.cpp   pkf/src/position.cpp
+          cp -v src/position.h     pkf/src/position.h
+          cp -v src/engine.cpp      pkf/src/engine.cpp
+          cp -v src/ucioption.cpp  pkf/src/ucioption.cpp
+          echo "--- Patched files copied ---"
+          head -30 pkf/src/position.cpp | tail -5
 
       - name: Build
         working-directory: pkf/src
