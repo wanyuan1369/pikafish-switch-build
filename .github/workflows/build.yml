@@ -33,12 +33,12 @@ jobs:
       - name: Build
         working-directory: pkf/src
         shell: msys2 {0}
-        run: make -j profile-build EXE=pikafish-switch.exe ARCH=x86-64
+        run: make -j profile-build EXE=pikafish-switch.exe ARCH=x86-64 COMP=clang
 
       - name: Strip
         working-directory: pkf/src
         shell: msys2 {0}
-        run: make strip EXE=pikafish-switch.exe
+        run: make strip EXE=pikafish-switch.exe COMP=clang
 
       - uses: actions/upload-artifact@v4
         with:
