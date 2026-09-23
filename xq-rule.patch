@@ -193,3 +193,25 @@
          if (!comboMap.count(v) || v == "var")
              return *this;
      }
+
+--- a/src/search.cpp
++++ b/src/search.cpp
+@@ -296,6 +296,18 @@ bool Search::Worker::iterative_deepening() {
+             mainThread->iterValue.fill(mainThread->bestPreviousScore);
+     }
+ 
++    // Root-level repetition detection: if the root position is already a
++    // repetition (from replayed moves), immediately yield the rule verdict
++    // instead of searching for tactical lines. This matches official Pikafish
++    // behavior where repeated positions resolve to draw/rule verdict at root.
++    Value rootVerdict = VALUE_NONE;
++    if (rootPos.rule_judge(rootVerdict, 0))
++    {
++        std::cout << "info depth 1 seldepth 1 score cp 0" << std::endl;
++        std::cout << "bestmove " << UCIEngine::move(rootMoves[0].pv[0]) << std::endl;
++        return false;
++    }
++
+     usize multiPV = usize(options["MultiPV"]);
+ 
+     multiPV = std::min(multiPV, rootMoves.size());
