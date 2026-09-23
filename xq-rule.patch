@@ -1,0 +1,181 @@
+--- a/src/position.h
++++ b/src/position.h
+@@ -42,6 +42,10 @@
+ class TranspositionTable;
+ struct SharedHistories;
+ 
++// XQ repetition-rule options, set from the UCI layer (engine.cpp)
++extern bool ChineseRule;
++extern int  MateThreatDepth;
++
+ // StateInfo struct stores information needed to restore a Position object to
+ // its previous state when we retract a move. Whenever a move is made on the
+ // board (by calling Position::do_move), a StateInfo object must be passed.
+@@ -195,6 +199,7 @@
+     void                  undo_move(Move m, Piece captured, int id = 0);
+     Value                 detect_chases(int d, int ply = 0);
+     bool                  chase_legal(Move m) const;
++    bool                  has_mate_threat(Depth d = -1);
+     template<bool AfterMove = false>
+     Key adjust_key60(Key k) const;
+ 
+--- a/src/position.cpp
++++ b/src/position.cpp
+@@ -47,6 +47,10 @@
+ 
+ using namespace Attacks;
+ 
++// XQ repetition-rule option state (defaults: Asian rule)
++bool ChineseRule    = false;
++int  MateThreatDepth = 1;
++
+ namespace Zobrist {
+ 
+ Key psq[PIECE_NB][SQUARE_NB];
+@@ -1246,12 +1250,13 @@
+     Color us = sideToMove, them = ~us;
+ 
+     // Rollback until we reached st - d
+-    u16 chase[COLOR_NB] = {0xFFFF, 0xFFFF};
++    u16 rooks[COLOR_NB]    = {0xFFFF, 0xFFFF};
++    u16 chase[COLOR_NB]     = {0xFFFF, 0xFFFF};
++    u16 newChase[COLOR_NB] = {};
++    newChase[us] = chased(us);
+     for (int i = 0; i < d; ++i)
+     {
+-        if (st->checkersBB)
+-            return VALUE_DRAW;
+-        else if (!chase[~sideToMove])
++        if (!chase[~sideToMove])
+         {
+             if (!chase[sideToMove])
+                 break;
+@@ -1260,19 +1265,101 @@
+         }
+         else
+         {
+-            u16 after = chased(~sideToMove);
+-            undo_move(st->move, st->capturedPiece);
+-            st = st->previous;
+-            // Take the exact diff to detect the chase
+-            chase[sideToMove] &= after & ~chased(sideToMove);
++            if (st->checkersBB || (ChineseRule && MateThreatDepth && has_mate_threat()))
++            {
++                // Redirect *check* and *mate threat* to *chase all pieces* in Chinese Rule
++                chase[~sideToMove] &= ChineseRule ? 0xFFFF : 0;
++                rooks[~sideToMove]   = 0;
++                undo_move(st->move, st->capturedPiece);
++                st = st->previous;
++            }
++            else
++            {
++                u16 oldChase = chased(~sideToMove);
++                // Calculate rooks pinned by knight
++                u16 flag = 0;
++                if (!ChineseRule && rooks[~sideToMove]
++                    && (blockers_for_king(sideToMove) & pieces(sideToMove, ROOK)))
++                {
++                    Bitboard knights = pinners(~sideToMove) & pieces(~sideToMove, KNIGHT);
++                    while (knights)
++                    {
++                        Square s = pop_lsb(knights);
++                        Bitboard b = between_bb(king_square(sideToMove), s) ^ s;
++                        s = pop_lsb(b);
++                        if (piece_on(s) == make_piece(sideToMove, ROOK))
++                            flag |= 1 << idBoard[s];
++                    }
++                }
++                undo_move(st->move, st->capturedPiece);
++                st = st->previous;
++                // Take the exact diff to detect the chase
++                u16 chases = oldChase & ~newChase[sideToMove];
++                newChase[sideToMove] = chased(sideToMove);
++                if (ChineseRule)
++                    chases = oldChase & ~newChase[sideToMove];
++                else if (i == d - 2)
++                    chases &= ~newChase[sideToMove];
++                rooks[sideToMove] &= chases & flag;
++                // Redirect *chase* to *chase all pieces* in Chinese Rule
++                chase[sideToMove] &= (ChineseRule && chases) ? 0xFFFF : chases;
++            }
+         }
+     }
+ 
+-    return bool(chase[us]) ^ bool(chase[them]) ? chase[us] ? mated_in(ply) : mate_in(ply)
+-                                               : VALUE_DRAW;
++    // Overrides chases if rooks pinned by knight is being chased
++    if ((!chase[us] && !chase[them]) || (rooks[us] && rooks[them]))
++        return VALUE_DRAW;
++    else if (rooks[us])
++        return mated_in(ply);
++    else if (rooks[them])
++        return mate_in(ply);
++
++    return !chase[us] ? mate_in(ply) : !chase[them] ? mated_in(ply) : VALUE_DRAW;
+ }
+ 
+ 
++// Calculate mate threat within MateThreatDepth plies (d == -1: null-move probe)
++bool Position::has_mate_threat(Depth d) {
++
++    bool mateThreat = false;
++    if (d == -1)
++    {
++        // Use null move to detect mate threats
++        StateInfo nullSt;
++        do_null_move(nullSt);
++        mateThreat = has_mate_threat(0);
++        undo_null_move();
++    }
++    else if (d < MateThreatDepth)
++    {
++        StateInfo tempSt[2];
++        // Try all check moves and see if we can continuously check to get a mate
++        for (const auto& check : MoveList<LEGAL>(*this))
++        {
++            if (gives_check(check))
++            {
++                do_move(check, tempSt[0]);
++                bool solvable = false;
++                for (const auto& evasion : MoveList<LEGAL>(*this))
++                {
++                    do_move(evasion, tempSt[1]);
++                    solvable = !has_mate_threat(d + 1);
++                    undo_move(evasion);
++                    // If there exists any evasion, the check is solvable
++                    if (solvable)
++                        break;
++                }
++                undo_move(check);
++                // If there exists any check that is not solvable, there is a mate threat
++                if (!solvable)
++                    return true;
++            }
++        }
++    }
++    return mateThreat;
++}
++
+ // Tests whether the position may end the game by rule 60, insufficient material, draw repetition,
+ // perpetual check repetition or perpetual chase repetition that allows a player to claim a game result.
+ bool Position::rule_judge(Value& result, int ply) {
+--- a/src/engine.cpp
++++ b/src/engine.cpp
+@@ -106,6 +106,17 @@
+ 
+     options.add("nodestime", Option(0, 0, 10000));
+ 
++    options.add("Mate Threat Depth", Option(1, 0, 10, [](const Option& o) {
++        MateThreatDepth = int(o);
++        return std::nullopt;
++    }));
++
++    options.add("Repetition Rule", Option("AsianRule var AsianRule var ChineseRule", "AsianRule",
++      [](const Option& o) {
++          ChineseRule = (o == "ChineseRule");
++          return std::nullopt;
++      }));
++
+     options.add("UCI_ShowWDL", Option(false));
+ 
+     options.add(  //
