@@ -33,6 +33,8 @@ jobs:
         working-directory: pkf
         run: |
           git init
+          git config user.email "builder@github.com"
+          git config user.name "GitHub Builder"
           git add -A
           git commit -m "master snapshot"
           sed -i 's/\r$//' ../xq-rule.patch
