@@ -1,4 +1,4 @@
-name: Build Switch
+name: Build Switch Windows
 
 on:
   push:
@@ -7,33 +7,40 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: clang64
+          install: mingw-w64-clang-x86_64-clang make git
+
       - name: Get Switch source
+        shell: msys2 {0}
         run: |
-          wget -q https://codeload.github.com/PikaCat-OuO/Pikafish/tar.gz/refs/heads/Switch -O src.tar.gz
+          curl -sL https://codeload.github.com/PikaCat-OuO/Pikafish/tar.gz/refs/heads/Switch -o src.tar.gz
           tar -xzf src.tar.gz
           mv Pikafish-Switch pkf
           ls pkf/src
 
-      - name: Install clang
-        run: sudo apt update && sudo apt install -y clang
-
       - name: Get net
+        shell: msys2 {0}
         run: |
-          wget -q https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue -O pkf/src/pikafish.nnue || echo "no net"
+          curl -sL https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue -o pkf/src/pikafish.nnue || echo "no net"
 
       - name: Build
         working-directory: pkf/src
-        run: make -j profile-build EXE=pikafish-switch ARCH=x86-64
+        shell: msys2 {0}
+        run: make -j profile-build EXE=pikafish-switch.exe ARCH=x86-64
 
       - name: Strip
         working-directory: pkf/src
-        run: make strip EXE=pikafish-switch
+        shell: msys2 {0}
+        run: make strip EXE=pikafish-switch.exe
 
       - uses: actions/upload-artifact@v4
         with:
-          name: pikafish-switch-linux-x86-64
-          path: pkf/src/pikafish-switch
+          name: Pikafish-Windows-x86-64-universal
+          path: pkf/src/pikafish-switch.exe
