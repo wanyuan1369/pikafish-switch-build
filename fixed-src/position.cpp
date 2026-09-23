@@ -1267,8 +1267,8 @@ Value Position::detect_chases(int d, int ply) {
             u16 after = chased(~sideToMove);
             undo_move(st->move, st->capturedPiece);
             st = st->previous;
-            // Take the exact diff to detect the chase
-            chase[sideToMove] &= after & ~chased(sideToMove);
+            // Track all pieces chased after each move (not just newly chased)
+            chase[sideToMove] &= after;
         }
     }
 
