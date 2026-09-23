@@ -28,6 +28,11 @@ jobs:
           mv Pikafish-master pkf
           ls pkf/src
 
+      - name: Apply XQ rule patch
+        working-directory: pkf
+        shell: msys2 {0}
+        run: git apply --verbose ../xq-rule.patch
+
       - name: Build
         working-directory: pkf/src
         shell: msys2 {0}
