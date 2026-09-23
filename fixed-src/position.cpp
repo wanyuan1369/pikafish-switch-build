@@ -1250,13 +1250,12 @@ Value Position::detect_chases(int d, int ply) {
     Color us = sideToMove, them = ~us;
 
     // Rollback until we reached st - d
-    u16 rooks[COLOR_NB]    = {0xFFFF, 0xFFFF};
-    u16 chase[COLOR_NB]     = {0xFFFF, 0xFFFF};
-    u16 newChase[COLOR_NB] = {};
-    newChase[us] = chased(us);
+    u16 chase[COLOR_NB] = {0xFFFF, 0xFFFF};
     for (int i = 0; i < d; ++i)
     {
-        if (!chase[~sideToMove])
+        if (st->checkersBB)
+            return VALUE_DRAW;
+        else if (!chase[~sideToMove])
         {
             if (!chase[sideToMove])
                 break;
@@ -1265,57 +1264,16 @@ Value Position::detect_chases(int d, int ply) {
         }
         else
         {
-            if (st->checkersBB || (ChineseRule && MateThreatDepth && has_mate_threat()))
-            {
-                // Redirect *check* and *mate threat* to *chase all pieces* in Chinese Rule
-                chase[~sideToMove] &= ChineseRule ? 0xFFFF : 0;
-                rooks[~sideToMove]   = 0;
-                undo_move(st->move, st->capturedPiece);
-                st = st->previous;
-            }
-            else
-            {
-                u16 oldChase = chased(~sideToMove);
-                // Calculate rooks pinned by knight
-                u16 flag = 0;
-                if (!ChineseRule && rooks[~sideToMove]
-                    && (blockers_for_king(sideToMove) & pieces(sideToMove, ROOK)))
-                {
-                    Bitboard knights = pinners(~sideToMove) & pieces(~sideToMove, KNIGHT);
-                    while (knights)
-                    {
-                        Square s = pop_lsb(knights);
-                        Bitboard b = between_bb(king_square(sideToMove), s) ^ s;
-                        s = pop_lsb(b);
-                        if (piece_on(s) == make_piece(sideToMove, ROOK))
-                            flag |= 1 << idBoard[s];
-                    }
-                }
-                undo_move(st->move, st->capturedPiece);
-                st = st->previous;
-                // Take the exact diff to detect the chase
-                u16 chases = oldChase & ~newChase[sideToMove];
-                newChase[sideToMove] = chased(sideToMove);
-                if (ChineseRule)
-                    chases = oldChase & ~newChase[sideToMove];
-                else if (i == d - 2)
-                    chases &= ~newChase[sideToMove];
-                rooks[sideToMove] &= chases & flag;
-                // Redirect *chase* to *chase all pieces* in Chinese Rule
-                chase[sideToMove] &= (ChineseRule && chases) ? 0xFFFF : chases;
-            }
+            u16 after = chased(~sideToMove);
+            undo_move(st->move, st->capturedPiece);
+            st = st->previous;
+            // Take the exact diff to detect the chase
+            chase[sideToMove] &= after & ~chased(sideToMove);
         }
     }
 
-    // Overrides chases if rooks pinned by knight is being chased
-    if ((!chase[us] && !chase[them]) || (rooks[us] && rooks[them]))
-        return VALUE_DRAW;
-    else if (rooks[us])
-        return mated_in(ply);
-    else if (rooks[them])
-        return mate_in(ply);
-
-    return !chase[us] ? mate_in(ply) : !chase[them] ? mated_in(ply) : VALUE_DRAW;
+    return bool(chase[us]) ^ bool(chase[them]) ? chase[us] ? mated_in(ply) : mate_in(ply)
+                                               : VALUE_DRAW;
 }
 
 
@@ -1365,8 +1323,8 @@ bool Position::has_mate_threat(Depth d) {
 bool Position::rule_judge(Value& result, int ply) {
 
     // Restore rule 60 by adding back the checks
-    int end = std::min(std::max(0, 2 * (st->check10[WHITE] - 10)) + st->rule60
-                     + std::max(0, 2 * (st->check10[BLACK] - 10)), st->pliesFromNull);
+    int end = std::min(std::max(0, st->check10[WHITE] - 10) + st->rule60
+                     + std::max(0, st->check10[BLACK] - 10), st->pliesFromNull);
 
     if (end >= 4 && filter[st->key] >= 1)
     {
