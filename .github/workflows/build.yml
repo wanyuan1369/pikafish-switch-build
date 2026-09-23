@@ -28,11 +28,6 @@ jobs:
           mv Pikafish-Switch pkf
           ls pkf/src
 
-      - name: Get net
-        shell: msys2 {0}
-        run: |
-          curl -sL https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue -o pkf/src/pikafish.nnue || echo "no net"
-
       - name: Build
         working-directory: pkf/src
         shell: msys2 {0}
@@ -46,6 +41,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Pikafish-Windows-x86-64-universal
-          path: |
-            pkf/src/pikafish-switch.exe
-            pkf/src/pikafish.nnue
+          path: pkf/src/pikafish-switch.exe
