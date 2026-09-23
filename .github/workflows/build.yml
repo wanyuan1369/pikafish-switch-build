@@ -1,0 +1,39 @@
+name: Build Switch
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get Switch source
+        run: |
+          wget -q https://codeload.github.com/PikaCat-OuO/Pikafish/tar.gz/refs/heads/Switch -O src.tar.gz
+          tar -xzf src.tar.gz
+          mv Pikafish-Switch pkf
+          ls pkf/src
+
+      - name: Install clang
+        run: sudo apt update && sudo apt install -y clang
+
+      - name: Get net
+        run: |
+          wget -q https://github.com/official-pikafish/Networks/releases/download/master-net/pikafish.nnue -O pkf/src/pikafish.nnue || echo "no net"
+
+      - name: Build
+        working-directory: pkf/src
+        run: make -j profile-build EXE=pikafish-switch ARCH=x86-64
+
+      - name: Strip
+        working-directory: pkf/src
+        run: make strip EXE=pikafish-switch
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pikafish-switch-linux-x86-64
+          path: pkf/src/pikafish-switch
