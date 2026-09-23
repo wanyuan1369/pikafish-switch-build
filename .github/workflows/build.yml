@@ -43,4 +43,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Pikafish-Windows-x86-64-universal
-          path: pkf/src/pikafish-switch.exe
+          path: |
+            pkf/src/pikafish-switch.exe
+            pkf/src/pikafish.nnue
