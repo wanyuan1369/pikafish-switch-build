@@ -179,3 +179,17 @@
      options.add("UCI_ShowWDL", Option(false));
  
      options.add(  //
+--- a/src/ucioption.cpp
++++ b/src/ucioption.cpp
+@@ -163,7 +163,11 @@
+         std::string        token;
+         std::istringstream ss(defaultValue);
+         while (ss >> token)
++        {
++            if (token == "var" || comboMap.count(token))
++                continue;
+             comboMap.add(token, Option());
++        }
+         if (!comboMap.count(v) || v == "var")
+             return *this;
+     }
